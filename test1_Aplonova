@@ -36,4 +36,4 @@ test_d <- c("apple", "lemon", "orange")
 ### 2.1   
 
 Convert them as factors to the variable `test_e`.  
-test_d <- as.factor(test_e)
+test_d <- factor(test_e)

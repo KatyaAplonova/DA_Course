@@ -1,0 +1,348 @@
+---
+title: "HW2_Aplonova"
+author: "Katya Aplonova"
+date: "5/12/2018"
+output: html_document
+---
+
+
+---
+title: "HW 2: From correlation to linear mixed-effect models. Assignment sheet"
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(lme4)
+library(vcd)
+```
+
+## 1. Vowel reduction in Russian
+Pavel Duryagin ran an experiment on perception of vowel reduction in Russian language. The dataset `shva` includes the following variables:  
+_time1_ - reaction time 1  
+_duration_ - duration of the vowel in the stimuly (in milliseconds, ms)  
+_time2_ - reaction time 2  
+_f1_, _f2_, _f3_ - the 1st, 2nd and 3rd formant of the vowel measured in Hz (for a short introduction into formants, see [here](https://home.cc.umanitoba.ca/~krussll/phonetics/acoustic/formants.html))  
+_vowel_ - vowel classified according the 3-fold classification (_A_ - _a_ under stress, _a_ - _a/o_ as in the first syllable before the stressed one, _y_ (stands for shva) - _a/o_ as in the second etc. syllable before the stressed one or after the stressed syllable, cf. _g_[_y_]_g_[_a_]_t_[_A_]_l_[_y_] _gogotala_ `guffawed').  
+In this part, we will ask you to analyse correlation between f1, f2, and duration.
+The dataset is available [https://raw.githubusercontent.com/agricolamz/2018-MAG_R_course/master/data/duryagin_ReductionRussian.txt](here).
+
+### 1.0 Read the data from file to the variable `shva`.
+```{r 1.0}
+shva <- read.csv("https://raw.githubusercontent.com/agricolamz/2018-MAG_R_course/master/data/duryagin_ReductionRussian.txt", sep ="\t")
+summary(shva)
+```
+
+### 1.1 Scatterplot `f1` and `f2` using `ggplot()`. 
+Design it to look like the [following](https://raw.githubusercontent.com/agricolamz/2018-MAG_R_course/master/img/duryagin1.png).
+```{r 1.1}
+library(ggplot2)
+library(dplyr)
+shva %>%
+  ggplot(aes(f2, f1)) +
+  geom_point(aes(color = vowel)) +
+  scale_x_reverse() +
+  scale_y_reverse() +
+  labs(title = "f2 and f1 of the reduced and stressed vowels",
+       caption = "Data from Duryagin 2018")+
+  theme(legend.position="none")
+```
+
+### 1.2 Plot the boxplots of `f1` and `f2` for each vowel using `ggplot()`.
+Design it to look like [this](https://raw.githubusercontent.com/agricolamz/2018-MAG_R_course/master/img/duryagin2.png) and [this](https://raw.githubusercontent.com/agricolamz/2018-MAG_R_course/master/img/duryagin3.png).
+```{r 1.2}
+# f1 boxplot
+shva %>%
+  ggplot(aes(vowel, f1)) +
+  geom_boxplot(aes(fill = vowel)) +
+  coord_flip()+
+  labs(title = "f1 distribution in each vowel",
+       caption = "Data from Duryagin 2018")+
+  theme(legend.position="none")
+# f2 boxplot
+shva %>%
+  ggplot(aes(vowel, f2)) +
+  geom_boxplot(aes(fill = vowel)) +
+  coord_flip()+
+  labs(title = "f2 distribution in each vowel",
+       caption = "Data from Duryagin 2018")+
+  theme(legend.position="none")
+```
+
+### 1.3 Which `f1` can be considered outliers in _a_ vowel?
+We assume outliers to be those observations that lie outside 1.5 * IQR, where IQR, the 'Inter Quartile Range', is the difference between the 1st and the 3rd quartile (= 25% and 75% percentile).
+
+Answer: The one which is higher than 800.
+
+### 1.4 Calculate Pearson's correlation of `f1` and `f2` (all data)
+```{r 1.4}
+cor(shva$f1, shva$f2, method = "pearson")
+```
+Answer: -0.5797475
+### 1.5 Calculate Pearson's correlation of `f1` and `f2` for each vowel
+```{r 1.5}
+shva_A <- subset(shva, vowel == "A")
+cor(shva_A$f1, shva_A$f2, method = "pearson")
+shva_a <- subset(shva, vowel == "a")
+cor(shva_a$f1, shva_a$f2, method = "pearson")
+shva_y <- subset(shva, vowel == "y")
+cor(shva_y$f1, shva_y$f2, method = "pearson")
+```
+Answers: 0.1032741 (A), -0.01126545 (a), 0.181871 (y)
+### 1.6
+```{r 1.6}
+# 1.6.1. Answer:   1639.7021      -0.4287 
+fit1 <- lm(shva$f2~shva$f1)
+# 1.6.2. Answer:  0.3319
+summary(fit1)
+# 1.6.3.
+shva$model1 <- predict(fit1)
+
+shva %>%
+  ggplot(aes(f2, f1)) +
+  scale_x_reverse() +
+  scale_y_reverse() +
+  geom_point(aes(color = vowel)) +
+  geom_line(aes(model1), color = "grey")+
+  labs(title = "f2 and f1 of the reduced and stressed vowels",
+       caption = "Data from Duryagin 2018")
+# неправильная regression line
+```
+
+### 1.7.
+```{r 1.7}
+# 1.7.1.
+lmer(f2 ~ f1 + (1+f1|vowel), data = shva)
+# 1.7.2.
+fit2 <- lmer(f2 ~ f1 + (1|vowel), data = shva)
+summary(fit2)
+# 1.7.3.
+shva$model2 <- predict(fit2)
+shva %>%
+  ggplot(aes(f2, f1)) +
+  scale_x_reverse() +
+  scale_y_reverse() +
+  geom_point(aes(color = vowel)) +
+  geom_line(aes(model2, color = vowel))+
+  labs(title = "f2 and f1 of the reduced and stressed vowels",
+       caption = "Data from Duryagin 2018")
+# неправильная regression line
+```
+
+## 2. English Lexicon Project data
+880 nouns, adjectives and verbs from the English Lexicon Project data (Balota et al. 2007).
+
+* `Format` -- A data frame with 880 observations on the following 5 variables.
+* `Word` -- a factor with lexical stimuli.
+* `Length` -- a numeric vector with word lengths.
+* `SUBTLWF` -- a numeric vector with frequencies in film subtitles.
+* `POS` -- a factor with levels JJ (adjective) NN (noun) VB (verb)
+* `Mean_RT` -- a numeric vector with mean reaction times in a lexical decision task
+Source (http://elexicon.wustl.edu/WordStart.asp)
+
+Data from Natalya Levshina's `RLing` package available (here)[https://raw.githubusercontent.com/agricolamz/2018-MAG_R_course/master/data/ELP.csv]
+
+### 2.0 Read the data from file to the variable `elp`.
+```{r 2.0}
+ELP <- read.csv("https://raw.githubusercontent.com/agricolamz/2018-MAG_R_course/master/data/ELP.csv", header = TRUE, sep = ",")
+summary(ELP)
+```
+
+### 2.1 Which two variables have the highest Pearson's correlaton value?
+```{r 2.1}
+library("dplyr")
+ELP_num <- select_if(ELP, is.numeric)
+cor(ELP_num, method="pearson")
+```
+Answer: Mean_RT and Length
+### 2.2 Group your data by parts of speech and make a scatterplot of SUBTLWF and Mean_RT.
+```{r 2.2}
+ELP %>%
+  ggplot(data = ., aes(log(SUBTLWF), Mean_RT)) +
+  geom_point(aes(color = Length)) +
+  facet_wrap(~POS)+
+  scale_color_continuous(low = "lightblue", high = "red")+
+  labs(caption = "data from (Balota et al. 2007)")
+```
+
+We've used `scale_color_continuous(low = "lightblue", high = "red")` as a parameter of `ggplot()`.
+
+### 2.3 Use the linear regression model to predict `Mean_RT` by `log(SUBTLWF)` and `POS`.
+#### 2.3.1 Provide the result regression formula
+```{r 2.3.1}
+Fit1 <- lm(data = ELP, Mean_RT~log(SUBTLWF) + POS)
+```
+Answer: Intercept (786.18)
+#### 2.3.2 Provide the adjusted R$^2$
+```{r 2.3.2}
+summary(Fit1)
+```
+Answer: 0.3385
+#### 2.3.3 Add the regression line in the scatterplot.
+```{r 2.3.3}
+Fit2 <- lm(data = ELP, Mean_RT~log(SUBTLWF))
+ELP$model2 <- predict(Fit2)
+ELP %>%
+  ggplot(aes(log(SUBTLWF), Mean_RT)) +
+  geom_point(aes(color = Length)) +
+  scale_color_continuous(low = "lightblue", high = "red")+
+  geom_line(aes(log(SUBTLWF), model2))+
+  labs(caption = "data from (Balota et al. 2007)")
+```
+
+### 2.4 Use the mixed-efects model to predict `Mean_RT` by `log(SUBTLWF)` using POS intercept as a random effect
+
+#### 2.4.1 Provide the fixed effects formula
+```{r 2.4.1}
+lmer(log(SUBTLWF) ~ Mean_RT + (1+Mean_RT|POS), data = ELP)
+```
+
+#### 2.4.2 Provide the variance for intercept argument for `POS` random effects
+```{r 2.4.2}
+Fit2 <- lmer(log(SUBTLWF) ~ Mean_RT + (1|POS), data = ELP)
+summary(Fit2)
+```
+
+#### 2.4.3 Add the regression line to the scatterplot
+```{r 2.4.3}
+ELP$model2 <- predict(Fit2)
+ELP %>%
+  ggplot(aes(log(SUBTLWF), Mean_RT)) +
+  geom_point(aes(color = POS)) +
+  geom_line(aes(model2))+
+  facet_wrap(~POS)+
+  labs(caption = "data from (Balota et al. 2007)")
+# неправильная regression line 
+```
+
+## 3. Dutch causative constructions
+
+This is a data set with examples of two Dutch periphrastic causatives extracted from newspaper corpora.
+
+The data frame includes 100 observations on the following 7 variables:
+
+* Cx -- a factor with levels doen_V and laten_V
+* CrSem -- a factor that contains the semantic class of the Causer with levels Anim (animate) and Inanim (inanimate).
+* CeSem -- a factor that describes the semantic class of the Causee with levels Anim (animate) and Inanim (inanimate).
+* CdEv -- a factor that describes the semantic domain of the caused event expressed by the Effected Predicate. The levels are Ment (mental), Phys (physical) and Soc (social).
+* Neg -- a factor with levels No (absence of negation) and Yes (presence of negation).
+* Coref -- a factor with levels No (no coreferentiality) and Yes (coreferentiality).
+* Poss -- a factor with levels No (no overt expression of possession) Yes (overt expression of possession)
+
+Data from Natalya Levshina's `RLing` package available (here)[https://raw.githubusercontent.com/agricolamz/2018-MAG_R_course/master/data/dutch_causatives.csv]
+
+### 3.0 Read the data from file to the variable `d_caus`.
+```{r 3.0}
+d_caus <- read.csv("https://raw.githubusercontent.com/agricolamz/2018-MAG_R_course/master/data/dutch_causatives.csv")
+summary(d_caus)
+install.packages(c("reshape", "vcd"))
+library(reshape); library(vcd)
+```
+
+### 3.1 We are going to test whether the association between `Aux` and other categorical variables (`Aux` ~ `CrSem`, `Aux` ~ `CeSem`, etc) is statistically significant. The assiciation with which variable should be analysed using Fisher's Exact Test and not using Pearson's Chi-squared Test? Is this association statistically significant?
+```{r 3.1}
+CrSem <- subset(d_caus[1:2])
+CrSem
+ctable_CrSem <- table(CrSem)
+ctable_CrSem
+CrSem_exp <- chisq.test(ctable_CrSem)$expected
+CrSem_exp
+chisq.test(ctable_CrSem)
+
+# contigency table for CeSem; it's OK to use chi-squared, not significant (p-value = 0.06778)
+CeSem <- select(d_caus, c("Aux", "CeSem"))
+ctable_CeSem <- table(CeSem)
+CeSem_exp <- chisq.test(ctable_CeSem)$expected
+CeSem_exp
+chisq.test(ctable_CeSem)
+
+# contigency table for CdEvSem; it's OK to use chi-squared, significant (p-value = 0.06778)
+CdEvSem <- select(d_caus, c("Aux", "CdEvSem"))
+ctable_CdEvSem <- table(CdEvSem)
+CdEvSem_exp <- chisq.test(ctable_CdEvSem)$expected
+CdEvSem_exp
+chisq.test(ctable_CdEvSem)
+
+# contigency table for CeSynt; there are low exp. frequencies, we need Fisher, significant(p-value < 2.2e-16)
+CeSynt <- select(d_caus, c("Aux", "CeSynt"))
+ctable_CeSynt <- table(CeSynt)
+CeSynt_exp <- chisq.test(ctable_CeSynt)$expected
+CeSynt_exp
+fisher.test(ctable_CeSynt)
+
+# contigency table for EPTrans; it's OK to use chi-squared, significant (p-value = 0.0001553)
+EPTrans <- select(d_caus, c("Aux", "EPTrans"))
+ctable_EPTrans <- table(EPTrans)
+EPTrans_exp <- chisq.test(ctable_EPTrans)$expected
+EPTrans_exp
+chisq.test(ctable_EPTrans)
+
+# contigency table for Country; it's OK to use chi-squared, significant (p-value = 0.0001127)
+Country <- select(d_caus, c("Aux", "Country"))
+ctable_Country <- table(Country)
+Country_exp <- chisq.test(ctable_Country)$expected
+Country_exp
+chisq.test(ctable_Country)
+
+# contigency table for Domain; it's OK to use chi-squared, significant (p-value = 2.014e-06)
+Domain <- select(d_caus, c("Aux", "Domain"))
+ctable_Domain <- table(Domain)
+Domain_exp <- chisq.test(ctable_Domain)$expected
+Domain_exp
+chisq.test(ctable_Domain)
+```
+
+### 3.2. Test the hypothesis that `Aux` and `EPTrans` are not independent with the help of Pearson's Chi-squared Test. 
+```{r 3.2}
+EPTrans <- select(d_caus, c("Aux", "EPTrans"))
+ctable_EPTrans <- table(EPTrans)
+ctable_EPTrans
+chisq.test(ctable_EPTrans)
+```
+
+### 3.3 Provide expected values for Pearson's Chi-squared Test of `Aux` and `EPTrans` variables.
+```{r 3.3}
+EPTrans_exp <- chisq.test(ctable_EPTrans)$expected
+EPTrans_exp
+```
+
+### 3.4. Calculate the odds ratio.
+```{r 3.4}
+ctable_EPTrans
+(57/28)/ (182/233)
+
+```
+Answer: 2.606162
+### 3.5 Calculate effect size for this test using Cramer's V (phi).
+```{r 3.5}
+assocstats(ctable_EPTrans)
+```
+Answer:  0.174 
+
+### 3.6. Report the results of independence test using the following template:
+```
+We have / have not found a significant association between variables ... and ... (p < 0.001).  The odds of ... were ... times higher / lower in (group ....) than in (group ....). Effect size is large / medium / small (Cramer's V = ....).
+
+We have found a signiicant association between transitivity of a verb (EPTrans) and the choice of auxiliary: χ2 (1) = 14.3, p < 0.001. The odds of  use of 'doen' were 2.6 times higher with intransitive verbs than with transitive ones, ϕ = 0.174.
+```
+
+### 3.7 Visualize the distribution using mosaic plot.
+Use `mosaic()` function from `vcd` library.
+```{r 3.7}
+vcd::mosaic(~ Aux + EPTrans, data=d_caus, shade=TRUE, legend=TRUE)
+```
+
+Below is an example of how to use mosaic() with three variables.
+```{r 3.7.1}
+# mosaic(~ Aux + CrSem + Country, data=d_caus, shade=TRUE, legend=TRUE)
+```
+
+### 3.8 Why is it not recommended to run multiple Chisq tests of independence on different variables within your dataset whithout adjusting for the multiplicity? (i.e. just testing all the pairs of variables one by one)  
+```
+It is not recomended to run multiple tests of independence (not only Chisq test) on different variables within one dataset, because it increases the probability to commit a Type 1 error (to reject the null hypothesis, while it is true).
+```
+
+### 3.9 Provide a short text (300 words) describing the hypothesis on this study and the results of your analysis.
+```{r 3.9}
+The hypothesis of this study is that the choice between the causative constructions with 'doen' and 'laten' depends on semantic class of the causer, causee or caused event, (in)transitivity of effected predicate, presence/absence of preposition with causee, national varieties of Dutch and meta-information about domain (politics, economy etc.) I have analysed only an association with one factor, i.e. (in)transitivity of effected verb. According to statistical analysis, if an effected verb is intransitive, the probability of an auxiliary 'doen' is higher. I have read an article about this study [Levshina 2012]. According to its conclusion, doen-constructions correlate with affective causation (inanimate causer, animate causee, intransitive predicate), while laten-construction demonstrates inverse preferences: animate causer, implicit or inannimate causee, transitive verb.
+```
+

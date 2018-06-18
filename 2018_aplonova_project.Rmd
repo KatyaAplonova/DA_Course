@@ -1,0 +1,156 @@
+---
+title: "Typological survey of transitivity"
+author: "Katya Aplonova"
+date: "6/15/2018"
+output: html_document
+---
+In this survey, I will try to analyze transitivity across languages. Transitive construction is a basic construction, which is opposed to intransitive one. The survey is done using a database of S. Say. This database is based on a questionnaire consisting of 130 sentences that contain bivalent predicative constructions. The same database, but with smaller number of languages, was analysed in [Say 2014]. Research questions of this survey are as follows. Do languages/constructions form distinctive groups depending on (in)transitivity? What are the outliers? Why? Do areal and genetic characteristics metter?
+
+First, let us read the data and introduce all the necessary libraries:
+
+```{r}
+library(tidyverse)
+theme_set(theme_bw())
+install.packages("magrittr")
+library(magrittr)
+install.packages("dplyr")
+library(dplyr)
+install.packages("ggrepel")
+library(ggrepel)
+```
+Now, we will prosede to data manipulation. Original data is very complex, as it contains formulas for all subtypes of intransitive constructions, which are exetremely diverse, e.g. NOMDAT, NOM_z_powodu_GEN, IO_ABS etc. I reduced values to only three: transitive constructions (tr), intransitive constructions (intr) and unkonow for constructions, which are impossible to be reproduced in respective languges.
+```{r data manipulation}
+# I will use two dataframes: whith languages as variables (df) and with constructions as variables (tdf).
+summary(df)
+summary(tdf)
+# This a categorical data, which is diffcult to visualize, so I will transform it in a numeric one in order to do simple exploratory visualization.
+num <- data.frame(lang = tdf[,1], tr=rowSums(tdf == 'tr'), intr=rowSums(tdf == 'intr'), unk=rowSums(tdf == 'unknown'))
+write.csv(num, file = "num.csv")
+tnum <- data.frame(constr = df[,1], tr=rowSums(df == 'tr'), intr=rowSums(df == 'intr'), unk=rowSums(df == 'unknown'))
+summary(num)
+summary(tnum)
+```
+
+To begin with, I will visulalize numeric data using scatter plots. X axe demonstrates number of transitive comstructions, while Y indicates intransitive ones. Information about uknown values is reflected using the gradient color of labels and dots: the warmer is color, the higher is a number of unknown values. 
+
+```{r simple visulization}
+library(ggplot2)
+library(magrittr)
+# Uncoment stat_ellipse() in order to see that there is no distinctive groups.
+
+# for languages
+ggplot(num, aes(tr, intr, color = unk)) + 
+  geom_point(shape = 16, size =2) + 
+  ggrepel::geom_text_repel(label = num$lang) +
+  scale_color_gradient(low = "#0091ff", high = "#f0650e") +
+  #stat_ellipse()+
+  xlab("Number of transitive constructions")+
+  ylab("Number of intransitive constructions")
+
+# for constructions
+ggplot(tnum, aes(tr, intr, colour = unk)) + 
+  geom_point(shape = 16, size =2) + 
+  ggrepel::geom_text_repel(label = tnum$constr) +
+  scale_color_gradient(low = "#0091ff", high = "#f0650e")+
+  theme_set(theme_bw())+
+  #stat_ellipse()+
+  xlab("Number of transitive constructions")+
+  ylab("Number of intransitive constructions")
+
+```
+We cannot see distinctive groups in languages, neither in construction. However, we do have some outliers, which will be discussed later.
+
+For a more advanced analysis, I will use MCA, as in my basic dataframe there are many categorical variables.
+
+```{r MCA (basic)}
+
+# for constructions
+library(magrittr)
+df1 <- as.data.frame(lapply(df, as.factor))
+MCA <- MASS::mca(df1[,-1])
+summary(MCA)
+df1 <- cbind(df1, MCA$rs)
+variables <- data.frame(MCA$cs)
+variables$var_names <- rownames(MCA$cs)
+
+df1 %>%
+ggplot(aes(`1`, `2`, label = Construction))+
+  ggrepel::geom_text_repel()+
+  stat_ellipse() +
+  xlab("Dim. 1")+
+  ylab("Dim. 2")
+
+# for languages
+tdf1 <- as.data.frame(lapply(tdf, as.factor))
+tMCA <- MASS::mca(tdf1[,-c(1:2)])
+tdf1 <- cbind(tdf1, tMCA$rs)
+tvariables <- data.frame(tMCA$cs)
+tvariables$var_names <- rownames(tMCA$cs)
+
+tdf1 %>%
+  ggplot(aes(`1`, `2`, label = Language))+
+  ggrepel::geom_text_repel()+
+  stat_ellipse() +
+  xlab("Dim. 1")+
+  ylab("Dim. 2")
+
+
+```
+MCA do not show distincive groups neither. Outliers are the same. However thedistribution inside ellipsis looks different. Firstly, we will look at outliers. 
+
+
+```{r Outliers}
+# I will discuss more examples during the presentation.
+df1 %>% 
+  filter(MandarinChinese != "unknown") %>% 
+  ggplot(aes(`1`, `2`, label = Construction, color = MandarinChinese))+
+  ggrepel::geom_text_repel()+
+  stat_ellipse() +
+  xlab("Dim. 1")+
+  ylab("Dim. 2")
+
+df1 %>% 
+  ggplot(aes(`1`, `2`, label = Construction, color = Russian))+
+  ggrepel::geom_text_repel()+
+  stat_ellipse() +
+  xlab("Dim. 1")+
+  ylab("Dim. 2")
+
+tdf1 %>% 
+  ggplot(aes(`1`, `2`, label = Language, color = drive))+
+  ggrepel::geom_text_repel()+
+  stat_ellipse() +
+  xlab("Dim. 1")+
+  ylab("Dim. 2")
+
+
+```
+Now, I will try to find correlation between the closeness of languages and their geographical distribution and genetic affiliation.
+```{r genetic and geography info}
+ggtdf <- cbind(tdf1, gen)
+# geography
+ggtdf %>% 
+  ggplot(aes(`1`, `2`, label = Language, color = Continent))+
+  ggrepel::geom_text_repel()+
+  stat_ellipse() +
+  xlab("Dim. 1")+
+  ylab("Dim. 2")
+
+# families
+ggtdf %>% 
+  ggplot(aes(`1`, `2`, label = Language, color = Family))+
+  ggrepel::geom_text_repel()+
+  stat_ellipse()+
+  xlab("Dim. 1")+
+  ylab("Dim. 2")
+
+# groups
+ggtdf %>% 
+  ggplot(aes(`1`, `2`, label = Language, color = Group))+
+  ggrepel::geom_text_repel()+
+  stat_ellipse()+
+  xlab("Dim. 1")+
+  ylab("Dim. 2")
+
+```
+According to the plots, genetic factor in come extend determines the transitivity pattern. This can be seen on the plot, which covers information about families. As far as areal distribution is concerned, we have only one distinctive group -- Eurasia. However, I think the problem is that the majority of languages included in the sample are from Eurasia, therefore others simply do not have a chance.

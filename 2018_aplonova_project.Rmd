@@ -21,6 +21,8 @@ library(ggrepel)
 Now, we will prosede to data manipulation. Original data is very complex, as it contains formulas for all subtypes of intransitive constructions, which are exetremely diverse, e.g. NOMDAT, NOM_z_powodu_GEN, IO_ABS etc. I reduced values to only three: transitive constructions (tr), intransitive constructions (intr) and unkonow for constructions, which are impossible to be reproduced in respective languges.
 ```{r data manipulation}
 # I will use two dataframes: whith languages as variables (df) and with constructions as variables (tdf).
+df <- read.csv("https://raw.githubusercontent.com/KatyaAplonova/DA_Course/master/df.csv")
+tdf <- read.csv("https://raw.githubusercontent.com/KatyaAplonova/DA_Course/master/tdf.csv")
 summary(df)
 summary(tdf)
 # This a categorical data, which is diffcult to visualize, so I will transform it in a numeric one in order to do simple exploratory visualization.
